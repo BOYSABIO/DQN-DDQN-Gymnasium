@@ -12,7 +12,7 @@ def test_model():
     model = DQN(state_size, action_size).to(device)
     
     # Load the saved model (which includes metadata)
-    checkpoint = torch.load('best_model.pth')
+    checkpoint = torch.load('final_model.pth')
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()  # Set to evaluation mode
     
