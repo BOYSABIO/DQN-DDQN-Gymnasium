@@ -1,8 +1,21 @@
 import gymnasium as gym
 import torch
-from dqn_lunar_lander import DQN, device
+from dqn_lunar_lander import DQN
+
+def get_device():
+    """Automatically detect the best available device"""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
 
 def test_model():
+    # Detect device
+    device = get_device()
+    print(f"Using device: {device}")
+    
     # Create environment with rendering
     env = gym.make('LunarLander-v2', render_mode='human')
     state_size = env.observation_space.shape[0]
@@ -11,8 +24,10 @@ def test_model():
     # Create and load the model
     model = DQN(state_size, action_size).to(device)
     
-    # Load the saved model (which includes metadata)
-    checkpoint = torch.load('final_model.pth')
+    # Load the saved model with automatic device mapping
+    checkpoint = torch.load(
+        'final_model.pth', map_location=device, weights_only=False
+    )
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()  # Set to evaluation mode
     
