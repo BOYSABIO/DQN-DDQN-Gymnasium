@@ -10,8 +10,17 @@ def test_model():
     
     # Create and load the model
     model = DQN(state_size, action_size).to(device)
-    model.load_state_dict(torch.load('model.pth'))
+    
+    # Load the saved model (which includes metadata)
+    checkpoint = torch.load('final_model.pth')
+    model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()  # Set to evaluation mode
+    
+    # Print model info
+    print(f"Loaded model from episode {checkpoint['episode']}")
+    print(f"Model was saved with reward: {checkpoint['reward']:.2f}")
+    print(f"Average reward at save time: {checkpoint['avg_reward']:.2f}")
+    print(f"Epsilon at save time: {checkpoint['epsilon']:.4f}")
     
     # Run 10 test episodes
     for episode in range(10):
