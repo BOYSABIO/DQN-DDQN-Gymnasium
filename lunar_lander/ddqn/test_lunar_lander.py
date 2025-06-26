@@ -1,6 +1,6 @@
 import gymnasium as gym
 import torch
-from dqn_lunar_lander import DQN, device
+from ddqn_lunar_lander import DQN, device
 
 def test_model():
     # Create environment with rendering
@@ -12,7 +12,7 @@ def test_model():
     model = DQN(state_size, action_size).to(device)
     
     # Load the saved model (which includes metadata)
-    checkpoint = torch.load('final_model.pth')
+    checkpoint = torch.load('/Users/lucasbrunner/Desktop/Studium/Reinforcment Learning/Group/DQN-DDQN-Gymnasium/lunar_lander/ddqn/final_model.pth')
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()  # Set to evaluation mode
     
