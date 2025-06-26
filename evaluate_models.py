@@ -38,7 +38,7 @@ except ImportError:
     LunarLanderDQN = None
 
 try:
-    from lunar_lander.ddqn.dqn_lunar_lander import DQN as LunarLanderDDQN
+    from lunar_lander.ddqn.ddqn_lunar_lander import DQN as LunarLanderDDQN
 except ImportError:
     LunarLanderDDQN = None
 
@@ -47,6 +47,48 @@ device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
 print(f"Using device: {device}")
+
+class LunarLanderDQN3Layer(torch.nn.Module):
+    """DQN network for LunarLander with 3 layers (128, 128, 4) - matches saved model"""
+    def __init__(self, input_size, output_size):
+        super(LunarLanderDQN3Layer, self).__init__()
+        self.fc1 = torch.nn.Linear(input_size, 128)
+        self.fc2 = torch.nn.Linear(128, 128)
+        self.fc3 = torch.nn.Linear(128, output_size)
+        
+        # Initialize weights
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, m):
+        if isinstance(m, torch.nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
+    
+    def forward(self, x):
+        x = torch.nn.functional.relu(self.fc1(x))
+        x = torch.nn.functional.relu(self.fc2(x))
+        return self.fc3(x)
+
+class LunarLanderDQN3Layer256(torch.nn.Module):
+    """DQN network for LunarLander with 3 layers (256, 256, 4) - matches newer saved model"""
+    def __init__(self, input_size, output_size):
+        super(LunarLanderDQN3Layer256, self).__init__()
+        self.fc1 = torch.nn.Linear(input_size, 256)
+        self.fc2 = torch.nn.Linear(256, 256)
+        self.fc3 = torch.nn.Linear(256, output_size)
+        
+        # Initialize weights
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, m):
+        if isinstance(m, torch.nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
+    
+    def forward(self, x):
+        x = torch.nn.functional.relu(self.fc1(x))
+        x = torch.nn.functional.relu(self.fc2(x))
+        return self.fc3(x)
 
 class CarRacingDQN(torch.nn.Module):
     """DQN network for CarRacing environment"""
@@ -220,17 +262,25 @@ class ModelEvaluator:
         if self.env_name == "LunarLander-v2":
             if LunarLanderDQN is None:
                 raise ImportError("LunarLander DQN model not available")
-            
-            # Detect architecture from state dict
-            if 'fc4.weight' in state_dict:
-                # Larger DDQN architecture
-                print(f"  - Detected DDQN architecture (4 layers)")
-                model = LunarLanderDDQN(self.state_size, self.action_size).to(device)
+            # Detect architecture from state dict by checking layer sizes
+            # 3-layer (128): fc1.weight [128, 8], no fc4.weight
+            # 3-layer (256): fc1.weight [256, 8], no fc4.weight  
+            # 4-layer: fc1.weight [512, 8], fc4.weight exists
+            if 'fc1.weight' in state_dict:
+                fc1_shape = state_dict['fc1.weight'].shape
+                if fc1_shape[0] == 128 and 'fc4.weight' not in state_dict:
+                    print(f"  - Detected DQN architecture (3 layers: 128->128->4)")
+                    model = LunarLanderDQN3Layer(self.state_size, self.action_size).to(device)
+                elif fc1_shape[0] == 256 and 'fc4.weight' not in state_dict:
+                    print(f"  - Detected DQN architecture (3 layers: 256->256->4)")
+                    model = LunarLanderDQN3Layer256(self.state_size, self.action_size).to(device)
+                elif fc1_shape[0] == 512 and 'fc4.weight' in state_dict:
+                    print(f"  - Detected DQN/DDQN architecture (4 layers: 512->512->256->4)")
+                    model = LunarLanderDQN(self.state_size, self.action_size).to(device)
+                else:
+                    raise ValueError(f"Unknown architecture: fc1 has {fc1_shape[0]} outputs, fc4 present: {'fc4.weight' in state_dict}")
             else:
-                # Standard DQN architecture
-                print(f"  - Detected DQN architecture (3 layers)")
-                model = LunarLanderDQN(self.state_size, self.action_size).to(device)
-                
+                raise ValueError("Could not detect architecture: fc1.weight not found in state dict")
         elif self.env_name == "CarRacing-v2":
             model = CarRacingDQN(self.state_size, self.action_size).to(device)
         
