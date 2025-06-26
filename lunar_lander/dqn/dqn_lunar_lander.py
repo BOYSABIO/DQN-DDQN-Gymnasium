@@ -23,10 +23,9 @@ print(f"Using device: {device}")
 class DQN(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
-        self.fc1 = nn.Linear(input_size, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 256)
-        self.fc4 = nn.Linear(256, output_size)
+        self.fc1 = nn.Linear(input_size, 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, output_size)
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -37,8 +36,7 @@ class DQN(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
-        return self.fc4(x)
+        return self.fc3(x)
 
 # ──────────────────── Replay Buffer ───────────────────────
 class ReplayBuffer:
@@ -64,17 +62,17 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.gamma = 0.99
         self.epsilon, self.eps_min, self.eps_decay = 1.0, 0.01, 0.9995
-        self.lr, self.batch = 1e-4, 64
+        self.lr, self.batch = 1e-4, 128
 
         self.policy_net = DQN(state_size, action_size).to(device)
         self.optim = optim.Adam(self.policy_net.parameters(), lr=self.lr,
                                 weight_decay=1e-5)
 
-        self.memory = ReplayBuffer(200_000)
+        self.memory = ReplayBuffer(200000)
 
     def select_action(self, state):
         if random.random() < self.epsilon:
-            return random.randrange(self.policy_net.fc4.out_features)
+            return random.randrange(self.policy_net.fc3.out_features)
         with torch.no_grad():
             state = torch.FloatTensor(state).unsqueeze(0).to(device)
             return self.policy_net(state).argmax().item()
@@ -166,7 +164,7 @@ def train_dqn():
     state_size, action_size = env.observation_space.shape[0], env.action_space.n
     agent = DQNAgent(state_size, action_size)
 
-    EPISODES, SAVE_INT, BEST_REW = 50, 500, -float('inf')
+    EPISODES, SAVE_INT, BEST_REW = 5000, 500, -float('inf')
     rec_rewards, best_models = [], []
 
     # logging containers
