@@ -23,10 +23,10 @@ print(f"Using device: {device}")
 class DQN(nn.Module):
     def __init__(self, input_size, output_size):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(input_size, 512)  # Larger network
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 256)
-        self.fc4 = nn.Linear(256, output_size)
+        self.fc1 = nn.Linear(input_size, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, output_size)
         
         # Initialize weights for better training
         self.apply(self._init_weights)
@@ -74,9 +74,9 @@ class DQNAgent:
         # Improved hyperparameters
         self.gamma = 0.99
         self.epsilon = 1.0
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.9995  # Slower decay
-        self.learning_rate = 0.0001  # Lower learning rate
+        self.epsilon_min = 0.05
+        self.epsilon_decay = 0.9997  # Slower decay, higher min
+        self.learning_rate = 0.00025  # Slightly higher learning rate
         self.batch_size = 64  # Smaller batch for stability
         self.memory = ReplayBuffer(200000)  # Larger buffer
         
@@ -228,7 +228,7 @@ def train_dqn():
     
     agent = DQNAgent(state_size, action_size)
     episodes = 4000  # More episodes
-    target_update = 50  # More frequent updates
+    target_update_steps = 1000  # Update target network every 1000 steps
     best_reward = float('-inf')
     
     # Performance tracking
@@ -245,10 +245,11 @@ def train_dqn():
     # Improved model saving
     save_interval = 500  # Save every 500 episodes
     best_models = []  # Keep track of top 3 models
+    step_count = 0  # For target network update by steps
     
     print("🚀 Starting DDQN training with comprehensive logging...")
     print(f"📈 Training for {episodes} episodes")
-    print(f"🎯 Target network update every {target_update} episodes")
+    print(f"🎯 Target network update every {target_update_steps} steps")
     print(f"💾 Model save interval: {save_interval} episodes")
     
     for episode in range(episodes):
@@ -272,16 +273,13 @@ def train_dqn():
             state = next_state
             total_reward += reward
             episode_length += 1
+            step_count += 1
+            # Update target network every target_update_steps
+            if step_count % target_update_steps == 0:
+                agent.update_target_network()
         
-        # Update target network
-        if episode % target_update == 0:
-            agent.update_target_network()
-        
-        # Update epsilon once per episode
-        agent.epsilon = max(
-            agent.epsilon_min, 
-            agent.epsilon * agent.epsilon_decay
-        )
+        # Decay epsilon after each episode
+        agent.epsilon = max(agent.epsilon_min, agent.epsilon * agent.epsilon_decay)
         
         # Track recent performance
         recent_rewards.append(total_reward)
@@ -290,6 +288,11 @@ def train_dqn():
         
         # Calculate average reward
         avg_reward = np.mean(recent_rewards) if recent_rewards else 0
+        
+        # Early stopping if solved
+        if len(recent_rewards) >= 100 and np.mean(recent_rewards[-100:]) >= 200:
+            print(f"\nEnvironment solved in {episode+1} episodes! 🎉")
+            break
         
         # Record episode statistics for logging
         episode_reward_list.append(str(total_reward))
